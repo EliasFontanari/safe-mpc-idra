@@ -5,7 +5,7 @@ cpu_num: 24
 N: 45                     # horizon length --> 45 for z1 
 back_hor: 45
 dt: 5e-3                  # time step
-alpha: 10.                # safety margin 
+alpha: 0.                # safety margin 
 
 n_dofs: 5                 # number of controlled joints 
 n_dof_safe_set: 5
@@ -18,7 +18,7 @@ rti_iter: 1
 qp_max_iter: 200
 alpha_reduction: 0.3
 alpha_min: 1e-2
-levenberg_marquardt: 5e-1  # 1e-3 in general, 1e-1 for z1 guess, 1e0 for z1 mpc
+levenberg_marquardt: 1e-5 #5e-1  # 1e-3 in general, 1e-1 for z1 guess, 1e0 for z1 mpc
 ext_flag: '-O2'
 
 ipopt_opts:
@@ -62,15 +62,21 @@ use_net: true            # use the network safe set if true, otherwise analytic 
 #network_path: '../nn_models/z1/4dof_gelu_obs_track_line.pt'
 # network_path: '../nn_models/z1/5dof_gelu_dt10ms_ALPHA_10.pt'
 # network_path: '../nn_models/z1/5dof_gelu_dt10ms_ALPHA_12.pt'
+# network_path: '../nn_models/z1/5dof_gelu_dt10ms_ALPHA_12.pt'
+# network_path: '../nn_models/z1/4dof_gelu_obs.pt'
+# network_size: [8, 256, 1]                       # input, hidden and output size
 network_path: '../nn_models/z1/5dof_gelu_dt10ms_ALPHA_12.pt'
 network_size: [10, 256, 1]                       # input, hidden and output size
+act_fun: 'gelu'
+
 act_fun: 'gelu'
 
 reg_term: 1e-6            # regularization term for anaytic safe set constraints 
 
 frame_ee: 'gripperMover'
 ee_position: [0.035, 0., 0.] # ee position in in frame_ee 
-ee_ref: [0.7, 0.17, 0.13] 
+# ee_ref: [0.7, 0.17, 0.13] 
+ee_ref: [0.6, 0.28, 0.078] 
 #ee_ref: [0.7, 0.4, 0.12] 
 #ee_ref: [0.7, 0.38, 0.10] 
 ee_radius: 0.075
@@ -80,11 +86,63 @@ ddq_max: [0.1       , 1.        , 1.666, 2.333, 2.333, 2.333]
 ddx_max: [0.133, 0.133, 0.133]
 
 # Obstacles and capsules
+# obstacles:
+#   - name: 'floor'
+#     type: 'plane'
+#     dimensions: [2, 2, 1e-3]
+#     color: [0,0,0,1]
+#     position: [0.75,0,0]
+#     transform: 
+#       - [1,0,0,0]
+#       - [0,1,0,0]
+#       - [0,0,1,0]
+#       - [0,0,0,1]
+#     perpendicular_axis: 2   # 0 for x, 1 for y, 2 for z
+#     bounds: [0,1e6]   # bounds: z position of floor and ceil
+#     real_bound: 0     # 0 if lower, 1 if upper
+
+#   # - name: 'ball'
+#     # type: 'sphere-obs'
+#     # radius: 0.12
+#     # color: [0,1,0,1]
+#     # position: [0.6,0.,0.12]
+#     # transform: 
+#     #   - [1,0,0,0.6]
+#     #   - [0,1,0,0]
+#     #   - [0,0,1,0.12]
+#     #   - [0,0,0,1]
+#     # bounds: [0,1e6]     # minimum and maximum distance from the sphere's surface. Minimum distance 0 means ball can be only touched lightly. 
+
+#   # - name: 'ball2'
+#   #   type: 'sphere-obs'
+#   #   radius: 0.05
+#   #   color: [0,1,1,1]
+#   #   position: [0.6,-0.2,0.12]
+#   #   transform:
+#   #     - [1,0,0,0.6]
+#   #     - [0,1,0,-0.2]
+#   #     - [0,0,1,0.12]
+#   #     - [0,0,0,1]
+#   #   bounds: [0,1e6] 
+
+#   # - name: 'ball3'
+#   #   type: 'sphere-obs'
+#   #   radius: 0.05
+#   #   color: [0,1,1,1]
+#   #   position: [0.6,0.2,0.12]
+#   #   transform:
+#   #     - [1,0,0,0.6]
+#   #     - [0,1,0,0.2]
+#   #     - [0,0,1,0.12]
+#   #     - [0,0,0,1]
+#   #   bounds: [0,1e6] 
+
+# Obstacles and capsules
 obstacles:
   - name: 'floor'
     type: 'plane'
     dimensions: [2, 2, 1e-3]
-    color: [0,0,0,1]
+    color: [0,0,1,1]
     position: [0.75,0,0]
     transform: 
       - [1,0,0,0]
@@ -96,40 +154,16 @@ obstacles:
     real_bound: 0     # 0 if lower, 1 if upper
 
   # - name: 'ball'
-    # type: 'sphere-obs'
-    # radius: 0.12
-    # color: [0,1,0,1]
-    # position: [0.6,0.,0.12]
-    # transform: 
-    #   - [1,0,0,0.6]
-    #   - [0,1,0,0]
-    #   - [0,0,1,0.12]
-    #   - [0,0,0,1]
-    # bounds: [0,1e6]     # minimum and maximum distance from the sphere's surface. Minimum distance 0 means ball can be only touched lightly. 
-
-  # - name: 'ball2'
   #   type: 'sphere-obs'
-  #   radius: 0.05
-  #   color: [0,1,1,1]
-  #   position: [0.6,-0.2,0.12]
-  #   transform:
+  #   radius: 0.12
+  #   color: [0,1,0,1]
+  #   position: [0.6,0.,0.12]
+  #   transform: 
   #     - [1,0,0,0.6]
-  #     - [0,1,0,-0.2]
+  #     - [0,1,0,0]
   #     - [0,0,1,0.12]
   #     - [0,0,0,1]
-  #   bounds: [0,1e6] 
-
-  # - name: 'ball3'
-  #   type: 'sphere-obs'
-  #   radius: 0.05
-  #   color: [0,1,1,1]
-  #   position: [0.6,0.2,0.12]
-  #   transform:
-  #     - [1,0,0,0.6]
-  #     - [0,1,0,0.2]
-  #     - [0,0,1,0.12]
-  #     - [0,0,0,1]
-  #   bounds: [0,1e6] 
+  #   bounds: [0,1e6]     # minimum and maximum distance from the sphere's surface. Minimum distance 0 means ball can be only touched lightly. 
 
 robot_capsules:
   - name: 'arm'
@@ -186,6 +220,23 @@ spheres_robot:
   #   color: [0,0.5,0.5,0.3]
 
 collision_pairs:
+  # # - ['arm','ee']
+  # #- ['ee','ball']
+  # # - ['ee', 'floor']
+  # # - ['forearm','floor']
+  # #- ['forearm', 'ball']
+  # # - ['ee','fixed1']
+  # # - ['ee','fixed2']
+  # # - ['ee','fixed3']
+  # # - ['forearm','fixed1']
+  # # - ['forearm','fixed2']
+  # # - ['forearm','fixed3']
+  # - ['ee_sphere', 'floor']   
+  # - ['ee_sphere', 'ball']
+  # # - ['ee','ball2']
+  # # - ['forearm','ball2']
+  # # - ['ee','ball3']
+  # # - ['forearm','ball3']
   - ['arm','ee']
   #- ['ee','ball']
   - ['ee', 'floor']
@@ -203,7 +254,6 @@ collision_pairs:
   # - ['forearm','ball2']
   # - ['ee','ball3']
   # - ['forearm','ball3']
-
 
 track_traj: false
 dim_shape_8: 0.27

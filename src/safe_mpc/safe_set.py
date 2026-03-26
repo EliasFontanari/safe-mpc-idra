@@ -95,6 +95,7 @@ class NetSafeSet(AbstractSafeSet):
         
         self.constraints.append(self.nn_model)
         
+        self.pure_nn_output = cs.Function('pure_nno_output', [self.model.x], [self.l4c_model(state)])
         self.nn_func = cs.Function('nn_func', [self.model.x, params], [self.nn_model])
         
         nn_model_alpha_fixed = self.l4c_model(state) * (100 - self.model.params.alpha) / 100 - vel_norm

@@ -31,6 +31,8 @@ def parse_args():
                         help='Joint bounds margin, in percentage - used in case of noise')
     parser.add_argument('--collision_margin', type=float, default=0.,
                         help='Collision margin in the constraints [m] - used in case of noise')
+    parser.add_argument('--start_array',type=int)
+    parser.add_argument('--end_array',type=int)
     return vars(parser.parse_args())
 
 def align_vectors(a, b):
@@ -167,17 +169,18 @@ class Parameters:
 
         # obstacles
         self.obstacles = []
-        for obstacle in parameters['obstacles']:
-            obs=dict()
-            for entry in obstacle:
-                if type(obstacle[entry]) == list: obs[entry] = np.array(obstacle[entry]).astype(float)
-                else: obs[entry] = obstacle[entry]
-            if obs['type'] == 'plane':
-                obs['bounds'][0] -= self.collision_margin
-                obs['bounds'][1] += self.collision_margin
-            elif obs['type'] == 'sphere-obs':
-                obs['radius'] -= self.collision_margin
-            self.obstacles.append(obs)
+        if parameters['obstacles'] != None:
+            for obstacle in parameters['obstacles']:
+                obs=dict()
+                for entry in obstacle:
+                    if type(obstacle[entry]) == list: obs[entry] = np.array(obstacle[entry]).astype(float)
+                    else: obs[entry] = obstacle[entry]
+                if obs['type'] == 'plane':
+                    obs['bounds'][0] -= self.collision_margin
+                    obs['bounds'][1] += self.collision_margin
+                elif obs['type'] == 'sphere-obs':
+                    obs['radius'] -= self.collision_margin
+                self.obstacles.append(obs)
 
         # capsules
         # robot capsules
@@ -201,7 +204,7 @@ class Parameters:
                 for entry in sphere_robot:
                     sphere[entry] = sphere_robot[entry]
                 self.spheres_robot.append(sphere)
-                self.sphere[-1]['radius'] -= self.collision_margin
+                self.spheres_robot[-1]['radius'] -= self.collision_margin
 
         self.collisions_pairs = []
         # assign pairs

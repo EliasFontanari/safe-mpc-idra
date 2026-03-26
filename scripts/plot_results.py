@@ -26,7 +26,7 @@ mpl.rcParams['figure.facecolor'] = 'white'
 
 args = parse_args()
 model_name = args['system']
-params = Parameters(model_name, rti=True)
+params = Parameters(args, model_name, rti=True)
 hor = args['horizon']
 alpha = int(args['alpha'])
 model = AdamModel(params)
@@ -47,7 +47,7 @@ labels = ['Naive', 'Zerovel', 'ST', 'HTWA', 'Receding','Parallel']
 # for i, c in enumerate(cont_names):
 #     ax.scatter(scores[c]['score'], scores[c]['fails'], color=colors[i], marker=markers[i], label=labels[i])
 # ax.set_xlabel(r"Cost surplus (\%)")
-# ax.set_ylabel(r"Task failed (\%)")
+# ax.set_ylabel(r"Failures (\%) (\%)")
 # ax.legend(fancybox=True, framealpha=0.5)
 # #plt.title(f'Comparison with horizon {hor} and alpha {alpha}\%')
 # plt.savefig(f'{params.DATA_DIR}metrics.pdf', bbox_inches='tight',transparent=True)
@@ -120,7 +120,7 @@ for i, c in enumerate(cont_names_net):
     
     ax.plot(horizons, scores/(params.test_num/100), color=colors[i], marker=markers[i], label=labels[i])
 ax.set_xlabel("Horizons (num of nodes)")
-ax.set_ylabel(r"Task failed (\%)")
+ax.set_ylabel(r"Failures (\%) (\%)")
 custom_ticks = [0,10, 20, 30, 40, 50, 60, 70]
 plt.yticks(custom_ticks)
 plt.xticks(horizons)
@@ -140,7 +140,7 @@ fig, ax = plt.subplots(figsize=(10, 7))
 for i, c in enumerate(cont_names_analytic):
     ax.plot(horizons, np.array(scores_mh[c]['fails'])/(params.test_num/100), color=colors[i], marker=markers[i], label=labels[i])
 ax.set_xlabel("Horizons (num of nodes)")
-ax.set_ylabel(r"Task failed (\%)")
+ax.set_ylabel(r"Failures (\%) (\%)")
 ax.legend(fancybox=True, framealpha=0.5)
 plt.tight_layout()
 plt.xticks(horizons)
@@ -173,7 +173,7 @@ for c in cont_names:
 fig, ax = plt.subplots(figsize=(10, 7))
 for i, c in enumerate(cont_names_net[1:]):
     ax.plot(alphas, scores_ma[c]['score'], color=colors[i], marker=markers[i], label=labels[i])
-ax.set_xlabel(r"$\alpha$")
+ax.set_xlabel(r"Safety margin (\%)")
 ax.set_ylabel(r"Cost surplus (\%)")
 ax.legend(fancybox=True, framealpha=0.5)
 plt.tight_layout()
@@ -188,8 +188,8 @@ plt.close()
 fig, ax = plt.subplots(figsize=(10, 7))
 for i, c in enumerate(cont_names_net[1:]):
     ax.plot(alphas, scores_ma[c]['fails'], color=colors[i], marker=markers[i], label=labels[i])
-ax.set_xlabel(r"$\alpha$")
-ax.set_ylabel(r"Task failed (\%)")
+ax.set_xlabel(r"Safety margin (\%)")
+ax.set_ylabel(r"Failures (\%) (\%)")
 ax.legend(fancybox=True, framealpha=0.5)
 plt.tight_layout()
 #plt.title(f'Comparison with horizon {hor}, network set')
@@ -203,7 +203,7 @@ plt.close()
 fig, ax = plt.subplots(figsize=(10, 7))
 for i, c in enumerate(cont_names_analytic[2:]):
     ax.plot(alphas, scores_ma[c]['score'], color=colors[i], marker=markers[i], label=labels[i])
-ax.set_xlabel(r"$\alpha$")
+ax.set_xlabel(r"Safety margin (\%)")
 ax.set_ylabel(r"Cost surplus (\%)")
 ax.legend(fancybox=True, framealpha=0.5)
 plt.tight_layout()
@@ -219,8 +219,8 @@ plt.close()
 fig, ax = plt.subplots(figsize=(10, 7))
 for i, c in enumerate(cont_names_analytic[2:]):
     ax.plot(alphas, scores_ma[c]['fails'], color=colors[i], marker=markers[i], label=labels[i])
-ax.set_xlabel(r"$\alpha$")
-ax.set_ylabel(r"Task failed (\%)")
+ax.set_xlabel(r"Safety margin (\%)")
+ax.set_ylabel(r"Failures (\%) (\%)")
 ax.legend(fancybox=True, framealpha=0.5)
 plt.tight_layout()
 plt.xticks(horizons)

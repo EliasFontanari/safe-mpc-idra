@@ -90,13 +90,16 @@ x_guess_zerovel, u_guess_zerovel = [], []
 
 print(f'Use network: {ocp_with_net.model.params.use_net}')
 
-TEST_NOISE = True
+TEST_NOISE = False
 
 progress_bar = tqdm(total=num_ics, desc=f'Generating initial conditions, alpha {ocp_with_net.model.params.alpha}')
 start_time = time.time()
-if not(ocp_with_net.model.params.track_traj):
-    while succ < num_ics:
 
+init_states = np.load('../set_verification/sampled_states.npy')
+if not(ocp_with_net.model.params.track_traj):
+    i=0
+    while succ < num_ics:
+        print(f'num ics {num_ics}')
         q0 = qmc.scale(sampler.random(), model.x_min[:model.nq], model.x_max[:model.nq])[0]
         if TEST_NOISE:
             #q0 = np.array([-0.6,2.513,-2.3,0.272])
@@ -104,7 +107,8 @@ if not(ocp_with_net.model.params.track_traj):
 
         x0 = np.zeros((model.nx,))
         x0[:model.nq] = q0
-
+        x0[:model.nq] = init_states[i,:model.nq]
+        x0 = init_states[i]
         #rviz.displayWithEESphere(x0[:params.nq],params.robot_capsules+params.obst_capsules,params.spheres_robot)
         if ocp_with_net.model.checkCollision(x0):
             print(f'accepted:{x0}')
@@ -155,7 +159,7 @@ if not(ocp_with_net.model.params.track_traj):
                         u_guess_zerovel.append(copy.copy(ocp_zerovel.u_temp))
                         x_guess_naive.append(copy.copy(ocp_naive.x_temp))
                         u_guess_naive.append(copy.copy(ocp_naive.u_temp)) 
-                    break   
+                    break  
 
             else:
                 fails += 1
@@ -164,6 +168,7 @@ if not(ocp_with_net.model.params.track_traj):
             print(f'Skipped:{x0}')
             time.sleep(5)
             skip_ics += 1
+        i+=1
 else:
     rviz.addTraj(ocp_with_net.cost.traj)
     rviz.vizTraj(ocp_with_net.cost.traj)
@@ -232,15 +237,15 @@ print(f'Number of skipped initial conditions: {skip_ics}')
 
 traj__track = 'traj_track' if ocp_with_net.model.params.track_traj else ""
 
-with open(f'{params.DATA_DIR}{model_name}_naive_{args["horizon"]}hor_{int(params.alpha)}sm_use_net{ocp_naive.model.params.use_net}_{traj__track}_q_collision_margins_{params_naive.q_margin}_{params_naive.collision_margin}_guess.pkl', 'wb') as f:
+with open(f'{params.DATA_DIR}{model_name}_naive_{args["horizon"]}hor_{int(params.alpha)}sm_use_net{ocp_naive.model.params.use_net}_{traj__track}_q_collision_margins_{params_naive.q_margin}_{params_naive.collision_margin}_ttt_guess.pkl', 'wb') as f:
         pickle.dump({'xg': np.asarray(x_guess_naive), 'ug': np.asarray(u_guess_naive)}, f)
-with open(f'{params.DATA_DIR}{model_name}_zerovel_{args["horizon"]}hor_{int(params.alpha)}sm_use_net{ocp_zerovel.model.params.use_net}_{traj__track}_q_collision_margins_{params_zerovel.q_margin}_{params_zerovel.collision_margin}_guess.pkl', 'wb') as f:
+with open(f'{params.DATA_DIR}{model_name}_zerovel_{args["horizon"]}hor_{int(params.alpha)}sm_use_net{ocp_zerovel.model.params.use_net}_{traj__track}_q_collision_margins_{params_zerovel.q_margin}_{params_zerovel.collision_margin}_ttt_guess.pkl', 'wb') as f:
         pickle.dump({'xg': np.asarray(x_guess_zerovel), 'ug': np.asarray(u_guess_zerovel)}, f)
 
 if (args['controller']!= 'naive' and args['controller']!= 'zerovel'):
     for cont in controllers_list:
         if cont in ['st','stwa','htwa','receding','real_receding','receding_parallel','parallel2','constraint_everywhere']:
-            with open(f'{params.DATA_DIR}{model_name}_{cont}_{args["horizon"]}hor_{int(params.alpha)}sm_use_net{ocp_with_net.model.params.use_net}_{traj__track}_q_collision_margins_{params.q_margin}_{params.collision_margin}_guess.pkl', 'wb') as f:
+            with open(f'{params.DATA_DIR}{model_name}_{cont}_{args["horizon"]}hor_{int(params.alpha)}sm_use_net{ocp_with_net.model.params.use_net}_{traj__track}_q_collision_margins_{params.q_margin}_{params.collision_margin}_ttt_guess.pkl', 'wb') as f:
                 pickle.dump({'xg': np.asarray(x_guess_net), 'ug': np.asarray(u_guess_net)}, f)
 
 

@@ -117,7 +117,7 @@ def plot_noise_level(alpha, horizon):
         for noise in noises:
             fails.append(failures[c][horizon][noise])
         ax.plot(noises, np.array(fails)/(params.test_num/100), color=colors[i], marker=markers[i], label=labels[i])
-    ax.set_xlabel("Noise level (\%)")
+    ax.set_xlabel("Max modeling error (\%)")
     ax.set_ylabel(r"Failures (\%)")
     #ax.legend(fancybox=True, framealpha=0.5)
     #plt.xticks(ticks=np.arange(1, len(cont_names) + 1), labels=cont_names)    
@@ -149,7 +149,7 @@ def plot_control_noise_level(alpha, horizon,margin_joints_index):
         for noise in noises:
             fails.append(failures[c][horizon][noise][margin_joints[margin_joints_index]])
         ax.plot(noises, np.array(fails)/(params.test_num/100), color=colors[i], marker=markers[i], label=labels[i])
-    ax.set_xlabel("Noise level (\%)")
+    ax.set_xlabel("Max modeling error (\%)")
     ax.set_ylabel(r"Failures (\%)")
     #ax.legend(fancybox=True, framealpha=0.5)
     #plt.xticks(ticks=np.arange(1, len(cont_names) + 1), labels=cont_names)    
@@ -195,7 +195,7 @@ def plot__noise_margins(alpha, horizon,noise):
     handles_tmp[2] = lines[3]
     handles_tmp[3] = lines[2]
     plt.xticks(ticks=x_values, labels=labels_margin)
-    ax.set_xlabel("[Up] Joint margin (\%), [Down] collision margin (m)",labelpad=20)
+    ax.set_xlabel("[Above] Joint margin (\%), [Below] collision margin (m)",labelpad=20)
     ax.tick_params(axis='x')  
     ax.tick_params(axis='y')
     ax.set_ylabel(r"Failures (\%)")
@@ -249,7 +249,7 @@ def plot_cost_noise_level(alpha, horizon,margin_joints_index):
             costs_plot.append(((np.mean(np.array(costs[c][horizon][noise][margin_joints[margin_joints_index]][0])[costs[c][horizon][noise][margin_joints[margin_joints_index]][1]])/costs[c][horizon][noise][margin_joints[margin_joints_index]][2])-1)*100)
         ax.plot(noises, costs_plot, color=colors[i], marker=markers[i], label=labels_tmp[i])
     
-    ax.set_xlabel("Noise level(\%)")
+    ax.set_xlabel("Max modeling error (\%)")
     ax.set_ylabel("Cost surplus (\%)")
     #ax.legend(fancybox=True, framealpha=1.0)
     #plt.xticks(ticks=np.arange(1, len(cont_names) + 1), labels=cont_names)    
@@ -301,7 +301,7 @@ def plot_cost_margin_level(alpha, horizon,noise):
     handles_tmp = copy.copy(lines)
     handles_tmp[2] = lines[3]
     handles_tmp[3] = lines[2]
-    ax.set_xlabel("[Up] Joint margin (\%), [Down] collision margin (m)")
+    ax.set_xlabel("[Above] Joint margin (\%), [Below] collision margin (m)")
     ax.set_ylabel("Cost surplus (\%)")
     #ax.legend( handles=handles_tmp,labels=labels_tmp,fancybox=True,framealpha=1.0)
 
