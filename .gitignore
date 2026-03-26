@@ -19,3 +19,4 @@ data/*
 .devcontainer/*
 robots/*
 logs/*
+*.log
