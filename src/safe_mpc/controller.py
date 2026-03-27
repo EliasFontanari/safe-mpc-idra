@@ -2,8 +2,8 @@ import re
 import numpy as np
 import scipy.linalg as lin
 from casadi import Function, norm_2
-from acados_template import AcadosOcp, AcadosOcpSolver
-from copy import deepcopy
+from acados_template import AcadosOcp, AcadosOcpSolver, AcadosMultiphaseOcp
+from copy import copy, deepcopy
 import casadi as cs
 import sympy as sym
 from safe_mpc.safe_set import NetSafeSet, AnalyticSafeSet
@@ -787,3 +787,234 @@ class SafeBackupController(AbstractController):
         self.ocp.solver_options.ext_fun_compile_flags = '-O3'
         self.ocp.solver_options.levenberg_marquardt = 0.   # Set Default
         self.ocp.solver_options.nlp_solver_max_iter = 20
+class BackAndForthNstepController(HTWAController):
+    def __init__(self, model, k_backward=1):
+        self.model = model
+        self.current_step = 0
+        self.k_backward = k_backward
+        self.N = self.model.params.N
+
+        # we want to set a two phase problem. The first phase has negative dynamics, since it has to go backward in time
+        self.k_backward = 1
+        N_list =[self.k_backward,self.N]
+        # N_list = [1,1]
+        
+        self.ocp = AcadosMultiphaseOcp(N_list=N_list)
+        self.build_flag = False
+
+        # Cost
+        # self.cost = None
+        
+        self.p = cs.MX.sym("p", 5)     #  p[0:3] -> EE reference (where you want to move the EE), p[3] -> Safety margin for the NN model in percentage ex (10% defined as 10), p[4] -> logic variable: 1 to activate the safe set constraint, -1 to deactivate it
+        self.ee_params = self.p[:3]
+        self.alpha_param = self.p[3]
+        self.cs_if_else_param = self.p[4]
+        self.create_safe_set()
+       
+        
+        # Phase 0: backward phase
+        ocp = AcadosOcp()
+        acados_model_backward = deepcopy(self.model.amodel)
+        acados_model_backward.name = self.model.amodel.name + '_backward'
+        acados_model_backward.dysc_dyn_expr = -self.model.amodel.disc_dyn_expr
+        ocp.model = acados_model_backward
+        # ocp.solver_options.N_horizon = N_list[0]
+
+        # Params
+        ocp.parameter_values = np.hstack([self.model.ee_ref, [self.model.params.alpha, 1.]])
+        ocp.model.p = self.p
+
+        # Bound constraints
+        if self.model.params.noise > 0:
+            ocp.constraints.lbx_0 = -1e6*np.ones(self.model.x_min.shape[0]) + self.model.x_min + (self.model.params.q_margin/100) * self.model.bounds_diff
+            ocp.constraints.ubx_0 = 1e6*np.ones(self.model.x_min.shape[0]) + self.model.x_max - (self.model.params.q_margin/100) * self.model.bounds_diff
+            ocp.constraints.idxbx_0 = np.arange(self.model.nx)
+        else: 
+            ocp.constraints.lbx_0 = self.model.x_min + (self.model.params.q_margin/100) * self.model.bounds_diff
+            ocp.constraints.ubx_0 = self.model.x_max - (self.model.params.q_margin/100) * self.model.bounds_diff
+            ocp.constraints.idxbx_0 = np.arange(self.model.nx)
+
+        ocp.constraints.lbx = self.model.x_min + (self.model.params.q_margin/100) * self.model.bounds_diff
+        ocp.constraints.ubx = self.model.x_max - (self.model.params.q_margin/100) * self.model.bounds_diff
+        ocp.constraints.idxbx = np.arange(self.model.nx)
+
+        ocp.constraints.lbx_e = self.model.x_min + (self.model.params.q_margin/100) * self.model.bounds_diff
+        ocp.constraints.ubx_e = self.model.x_max - (self.model.params.q_margin/100) * self.model.bounds_diff
+        ocp.constraints.idxbx_e = np.arange(self.model.nx)
+
+        # Nonlinear constraints
+        
+        self.nl_con_0, self.nl_con, self.nl_con_e = self.model.NL_external
+        self.idxhs_0,self.idxhs,self.idxhs_e = np.zeros(0),np.zeros(0),np.zeros(0)
+        self.zl_0,self.zu_0,self.Zl_0,self.Zu_0 = np.zeros(0),np.zeros(0),np.zeros(0),np.zeros(0)
+        self.zl,self.zu,self.Zl,self.Zu = np.zeros(0),np.zeros(0),np.zeros(0),np.zeros(0)
+        self.zl_e,self.zu_e,self.Zl_e,self.Zu_e = np.zeros(0),np.zeros(0),np.zeros(0),np.zeros(0)
+
+        if self.model.params.noise > 0.:
+            print(f"Noise {self.model.params.noise} (\%)")
+            self.nl_con_0 = self.nl_con_0[0]
+            ocp.model.con_h_expr_0 = cs.vertcat(self.nl_con_0[0])           
+            ocp.constraints.lh_0 = np.array(self.nl_con_0[1])
+            ocp.constraints.uh_0 = np.array(self.nl_con_0[2])
+            ocp.constraints.idxsh_0 = self.idxhs_0
+            ocp.cost.zl_0,ocp.cost.zu_0,ocp.cost.Zl_0,ocp.cost.Zu_0 = self.zl_0,self.zu_0,self.Zl_0,self.Zu_0
+        else: 
+            ocp.model.con_h_expr_0 = cs.vertcat(*[constr[0] for constr in self.nl_con_0])           
+            ocp.constraints.lh_0 = np.array(cs.vertcat(*[constr[1] for constr in self.nl_con_0]))
+            ocp.constraints.uh_0 = np.array(cs.vertcat(*[constr[2] for constr in self.nl_con_0]))  
+            ocp.constraints.idxsh_0 = self.idxhs_0
+            ocp.cost.zl_0,ocp.cost.zu_0,ocp.cost.Zl_0,ocp.cost.Zu_0 = self.zl_0,self.zu_0,self.Zl_0,self.Zu_0
+
+        ocp.model.con_h_expr = cs.vertcat(*[constr[0] for constr in self.nl_con])
+        ocp.constraints.lh = np.array(cs.vertcat(*[constr[1] for constr in self.nl_con]))  
+        ocp.constraints.uh = np.array(cs.vertcat(*[constr[2] for constr in self.nl_con]))  
+        ocp.constraints.idxsh = self.idxhs
+        ocp.cost.zl,ocp.cost.zu,ocp.cost.Zl,ocp.cost.Zu = self.zl,self.zu,self.Zl,self.Zu
+        
+        if len(self.nl_con_e) > 0.:
+            ocp.model.con_h_expr_e = cs.vertcat(*[constr[0] for constr in self.nl_con_e])
+            ocp.constraints.lh_e = np.array(cs.vertcat(*[constr[1] for constr in self.nl_con_e]))
+            ocp.constraints.uh_e = np.array(cs.vertcat(*[constr[2] for constr in self.nl_con_e]))
+            ocp.constraints.idxsh_e = self.idxhs_e
+            ocp.cost.zl_e,ocp.cost.zu_e,ocp.cost.Zl_e,ocp.cost.Zu_e = self.zl_e,self.zu_e,self.Zl_e,self.Zu_e   
+
+        ocp.cost.cost_type = 'LINEAR_LS'
+        ocp.cost.cost_type_e = 'LINEAR_LS'
+
+        
+
+        self.ocp.set_phase(ocp, 0)
+
+        # Phase 1: forward phase
+        ocp = AcadosOcp()
+        ocp.model = self.model.amodel
+        # ocp.solver_options.N_horizon = N_list[1]
+
+        # Params
+        ocp.parameter_values = np.hstack([self.model.ee_ref, [self.model.params.alpha, 1.]])
+        ocp.model.p = self.p
+
+        # Bound constraints
+        if self.model.params.noise > 0:
+            ocp.constraints.lbx_0 = -1e6*np.ones(self.model.x_min.shape[0]) + self.model.x_min + (self.model.params.q_margin/100) * self.model.bounds_diff
+            ocp.constraints.ubx_0 = 1e6*np.ones(self.model.x_min.shape[0]) + self.model.x_max - (self.model.params.q_margin/100) * self.model.bounds_diff
+            ocp.constraints.idxbx_0 = np.arange(self.model.nx)
+        else: 
+            ocp.constraints.lbx_0 = self.model.x_min + (self.model.params.q_margin/100) * self.model.bounds_diff
+            ocp.constraints.ubx_0 = self.model.x_max - (self.model.params.q_margin/100) * self.model.bounds_diff
+            ocp.constraints.idxbx_0 = np.arange(self.model.nx)
+
+        ocp.constraints.lbx = self.model.x_min + (self.model.params.q_margin/100) * self.model.bounds_diff
+        ocp.constraints.ubx = self.model.x_max - (self.model.params.q_margin/100) * self.model.bounds_diff
+        ocp.constraints.idxbx = np.arange(self.model.nx)
+
+        ocp.constraints.lbx_e = self.model.x_min + (self.model.params.q_margin/100) * self.model.bounds_diff
+        ocp.constraints.ubx_e = self.model.x_max - (self.model.params.q_margin/100) * self.model.bounds_diff
+        ocp.constraints.idxbx_e = np.arange(self.model.nx)
+
+        # Nonlinear constraints
+        
+        self.nl_con_0, self.nl_con, self.nl_con_e = self.model.NL_external
+        self.idxhs_0,self.idxhs,self.idxhs_e = np.zeros(0),np.zeros(0),np.zeros(0)
+        self.zl_0,self.zu_0,self.Zl_0,self.Zu_0 = np.zeros(0),np.zeros(0),np.zeros(0),np.zeros(0)
+        self.zl,self.zu,self.Zl,self.Zu = np.zeros(0),np.zeros(0),np.zeros(0),np.zeros(0)
+        self.zl_e,self.zu_e,self.Zl_e,self.Zu_e = np.zeros(0),np.zeros(0),np.zeros(0),np.zeros(0)
+
+        # Add safe set terminal constraint
+        self.additionalSetting()
+
+        if self.model.params.noise > 0.:
+            print(f"Noise {self.model.params.noise} (\%)")
+            self.nl_con_0 = self.nl_con_0[0]
+            ocp.model.con_h_expr_0 = cs.vertcat(self.nl_con_0[0])           
+            ocp.constraints.lh_0 = np.array(self.nl_con_0[1])
+            ocp.constraints.uh_0 = np.array(self.nl_con_0[2])
+            ocp.constraints.idxsh_0 = self.idxhs_0
+            ocp.cost.zl_0,ocp.cost.zu_0,ocp.cost.Zl_0,ocp.cost.Zu_0 = self.zl_0,self.zu_0,self.Zl_0,self.Zu_0
+        else: 
+            ocp.model.con_h_expr_0 = cs.vertcat(*[constr[0] for constr in self.nl_con_0])           
+            ocp.constraints.lh_0 = np.array(cs.vertcat(*[constr[1] for constr in self.nl_con_0]))
+            ocp.constraints.uh_0 = np.array(cs.vertcat(*[constr[2] for constr in self.nl_con_0]))  
+            ocp.constraints.idxsh_0 = self.idxhs_0
+            ocp.cost.zl_0,ocp.cost.zu_0,ocp.cost.Zl_0,ocp.cost.Zu_0 = self.zl_0,self.zu_0,self.Zl_0,self.Zu_0
+
+        ocp.model.con_h_expr = cs.vertcat(*[constr[0] for constr in self.nl_con])
+        ocp.constraints.lh = np.array(cs.vertcat(*[constr[1] for constr in self.nl_con]))  
+        ocp.constraints.uh = np.array(cs.vertcat(*[constr[2] for constr in self.nl_con]))  
+        ocp.constraints.idxsh = self.idxhs
+        ocp.cost.zl,ocp.cost.zu,ocp.cost.Zl,ocp.cost.Zu = self.zl,self.zu,self.Zl,self.Zu
+        
+        if len(self.nl_con_e) > 0.:
+            ocp.model.con_h_expr_e = cs.vertcat(*[constr[0] for constr in self.nl_con_e])
+            ocp.constraints.lh_e = np.array(cs.vertcat(*[constr[1] for constr in self.nl_con_e]))
+            ocp.constraints.uh_e = np.array(cs.vertcat(*[constr[2] for constr in self.nl_con_e]))
+            ocp.constraints.idxsh_e = self.idxhs_e
+            ocp.cost.zl_e,ocp.cost.zu_e,ocp.cost.Zl_e,ocp.cost.Zu_e = self.zl_e,self.zu_e,self.Zl_e,self.Zu_e 
+        
+        ocp.cost.cost_type = 'LINEAR_LS'
+        ocp.cost.cost_type_e = 'LINEAR_LS'
+
+        self.ocp.set_phase(ocp, 1)
+
+        # Set dt
+        self.ocp.solver_options.tf = self.model.params.dt * (N_list[0] + N_list[1])
+
+        # Set options
+        self.ocp.solver_options.integrator_type = "DISCRETE"
+        #self.ocp.solver_options.hessian_approx = "EXACT"   
+        self.ocp.solver_options.nlp_solver_type = self.model.params.solver_type
+        self.ocp.solver_options.hpipm_mode = self.model.params.solver_mode
+        # self.ocp.solver_options.qp_solver = 'FULL_CONDENSING_HPIPM'
+        self.ocp.solver_options.nlp_solver_max_iter = self.model.params.nlp_max_iter
+        self.ocp.solver_options.qp_solver_iter_max = self.model.params.qp_max_iter
+        self.ocp.solver_options.globalization = self.model.params.globalization
+        self.ocp.solver_options.levenberg_marquardt = self.model.params.levenberg_marquardt #if self.model.params.solver_type == 'SQP_RTI' else 0.
+        #self.ocp.solver_options.ext_fun_compile_flags = self.model.params.ext_flag
+        self.ocp.solver_options.exact_hess_constr = 0
+        self.ocp.solver_options.exact_hess_cost = 0
+        self.ocp.solver_options.exact_hess_dyn = 0
+
+        self.reset_controller()
+
+        # Empty initial guess and temp vectors
+        self.x_guess = np.zeros(((self.N + self.k_backward) + 1, self.model.nx))
+        self.u_guess = np.zeros(((self.N + self.k_backward), self.model.nu))
+        self.x_temp, self.u_temp = np.copy(self.x_guess), np.copy(self.u_guess)
+
+        # Time stats
+        self.time_fields = ['time_lin', 'time_sim', 'time_qp', 'time_qp_solver_call',
+                            'time_glob', 'time_reg', 'time_tot']
+        self.last_status = 4
+
+    def solve(self, x_k):
+        if not(self.build_controller):
+            raise ValueError("Controller not builded")
+        
+        # Reset current iterate
+        self.ocp_solver.reset()
+
+        # Constrain initial state
+        self.ocp_solver.constraints_set(self.k_backward, "lbx", x_k)
+        self.ocp_solver.constraints_set(self.k_backward, "ubx", x_k)
+
+        for i in range(self.N + self.k_backward):
+            self.ocp_solver.set(i, 'x', self.x_guess[i])
+            self.ocp_solver.set(i, 'u', self.u_guess[i])
+            
+        self.ocp_solver.set(self.N + self.k_backward + 1, 'x', self.x_guess[-1])
+
+        for i in range(self.N + self.k_backward + 1):
+            self.ocp_solver.set(i,'p',np.hstack([self.cost.traj[:,self.current_step+i],
+                                                [self.model.params.alpha,
+                                                 self.ocp_solver.get(i,'p')[-1]]]))
+        # Solve the OCP
+        status = self.ocp_solver.solve()
+
+        # Save the temporary solution, independently of the status
+        for i in range(self.N + self.k_backward + 1):
+            self.x_temp[i] = self.ocp_solver.get(i, "x")
+            self.u_temp[i] = self.ocp_solver.get(i, "u")
+        self.x_temp[-1] = self.ocp_solver.get(self.N + self.k_backward, "x")
+
+        self.last_status = status
+        return status
