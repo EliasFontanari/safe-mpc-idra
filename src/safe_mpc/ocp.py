@@ -102,7 +102,11 @@ class NaiveOCP:
         for i in range(u.shape[0]):
             self.xg[i] = x[i,:]
             self.ug[i] = u[i,:]
+            self.opti.set_initial(self.X[i], self.xg[i,:])
+            self.opti.set_initial(self.U[i], self.ug[i,:])
         self.xg[i+1] = x[-1,:]
+        self.opti.set_initial(self.X[i+1], self.xg[-1, :])
+        
     
     def checkSafeConstraints(self, x):
         return self.safe_set.check_constraint(x) 
@@ -301,6 +305,17 @@ class SafeAbortOCP(NaiveOCP):
         self.opti.minimize(cost)
         self.opti.subject_to(self.X[-1][self.nq:] == 0.)
         self.cost = cost
+
+    def solve(self, x_init):
+        self.opti.set_value(self.x_init, x_init)
+        try:
+            sol = self.opti.solve()
+            self.xg = np.array([sol.value(self.X[k]) for k in range(self.model.params.N + 1)])
+            self.ug = np.array([sol.value(self.U[k]) for k in range(self.model.params.N)])
+            return True, self.ug
+        except:
+            print('No solution found')
+            return False, None
 
 class InverseKinematicsOCP:
     """ Define OCP problem and solver (IpOpt) """

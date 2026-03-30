@@ -12,8 +12,10 @@ import copy
 from safe_mpc.cost_definition import *
 
 args = parse_args()
+
 start = args['start_array']
 end = args['end_array']
+
 model_name = args['system']
 params = Parameters(args,model_name, rti=False)
 params.q_margin = args['joint_bounds_margin']

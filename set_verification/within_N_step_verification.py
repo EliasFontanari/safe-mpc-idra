@@ -13,7 +13,6 @@ from tqdm import tqdm
 from copy import deepcopy
 import sys
 
-
 args = parse_args()
 start = args['start_array']
 end = args['end_array']

@@ -50,16 +50,18 @@ progress_bar = tqdm(total=state_to_test.shape[0], desc=f'Testing initial conditi
 start_time = time.time()
 results = np.zeros(state_to_test.shape[0], dtype=bool)
 
-rviz = RobotVisualizer(params, params.nq)
-if params.obs_flag:
-    rviz.addObstacles(params.obstacles)
-rviz.init_capsule(params.robot_capsules+params.obst_capsules)
-rviz.init_spheres(params.spheres_robot)
+# rviz = RobotVisualizer(params, params.nq)
+# if params.obs_flag:
+#     rviz.addObstacles(params.obstacles)
+# rviz.init_capsule(params.robot_capsules+params.obst_capsules)
+# rviz.init_spheres(params.spheres_robot)
 
 
 for i in range(state_to_test.shape[0]):
     # print(f'Safety value of state {i}: {ocp_with_net.safe_set.nn_func_x(state_to_test[i])}')
     x_init = state_to_test[i]
+    ocp_with_net.resetHorizon(1)
+
     # rviz.displayWithEESphere(x_init[:params.nq],params.robot_capsules+params.obst_capsules,params.spheres_robot)
     # time.sleep(2)
     u0_g = np.array([np.zeros((model.nu,))]*ocp_with_net.N)
@@ -71,7 +73,7 @@ for i in range(state_to_test.shape[0]):
         results[i] = True
     else:        
         results[i] = False
-    print(f'State {i} is Safe? {results[i]}')
+    print(f'State {x_init[:params.nq]} {i} is Safe? {results[i]}')
     progress_bar.update(1)
 np.save('data_results/verification_results_CIS_acados.npy', results)
 print(f'succesful states = {np.sum(results)} / {results.shape[0]}')

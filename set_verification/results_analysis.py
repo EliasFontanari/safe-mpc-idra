@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-solver = 'ipopt' # choose between 'acados' and 'ipopt' data
+solver = 'acados' # choose between 'acados' and 'ipopt' data
 
 # load tested initial conditions
 states_to_verify = np.load('data_results/sampled_states.npy')
@@ -9,7 +9,7 @@ states_to_verify = np.load('data_results/sampled_states.npy')
 # load data from acados or ipopt
 if solver == 'acados':
     results_N_stepCIS = np.load('data_results/verification_results_N_CIS_acados.npy')
-    results_CIS = np.load('data_results/verification_results_CIS.npy')
+    results_CIS = np.load('data_results/verification_results_CIS_acados.npy')
 elif solver == 'ipopt':
     results_N_stepCIS = np.load('data_results/verification_results_N_stepCIS.npy')
     results_CIS = np.load('data_results/verification_results_CIS.npy')
@@ -34,4 +34,17 @@ for idx in infeasible_indices:
         string_to_print += f' | Horizon {horizon+1}: {"Safe" if results_N_stepCIS[idx,horizon] else "Unsafe"}\n'  
     print(string_to_print) 
 
+horizons_result = []
+for i in range(results_N_stepCIS.shape[1]):
+    horizons_result.append(np.sum(results_N_stepCIS[:,i]))
 
+plt.figure()
+plt.bar(range(1, len(horizons_result)+1), horizons_result, width=0.75)
+plt.axhline(y=max(horizons_result), color='red', linestyle='--', label=f'Max: {max(horizons_result)}')
+plt.xlabel('Horizon')
+plt.ylabel('Number of successful states for each horizon')
+plt.title(f'Number of successful states for each horizon, {solver} data')
+plt.savefig(f'data_results/successful_states_per_horizon_{solver}.png')  
+
+
+# analysis of N-step CIS excluded unfeasible states for CIS

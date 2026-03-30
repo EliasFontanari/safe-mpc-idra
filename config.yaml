@@ -29,7 +29,7 @@ ipopt_opts:
   'ipopt.compl_inf_tol': 0.000001
   'ipopt.hessian_approximation': 'limited-memory'
   'ipopt.max_iter': 500
-  'ipopt.sb': 'yes'
+  # 'ipopt.sb': 'yes'
         
 
 Q_weight: 1e2                        # state cost

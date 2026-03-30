@@ -786,7 +786,12 @@ class SafeBackupController(AbstractController):
         # Options
         self.ocp.solver_options.ext_fun_compile_flags = '-O3'
         self.ocp.solver_options.levenberg_marquardt = 0.   # Set Default
-        self.ocp.solver_options.nlp_solver_max_iter = 20
+        self.ocp.solver_options.nlp_solver_max_iter = 500
+
+    def checkGuess(self):
+        return self.model.checkRunningConstraints(self.x_temp, self.u_temp) and \
+               self.model.checkDynamicsConstraints(self.x_temp, self.u_temp) and \
+               np.all([self.model.checkCollision(x) for x in self.x_temp])
 class BackAndForthNstepController(HTWAController):
     def __init__(self, model, k_backward=1):
         self.model = model
@@ -795,9 +800,7 @@ class BackAndForthNstepController(HTWAController):
         self.N = self.model.params.N
 
         # we want to set a two phase problem. The first phase has negative dynamics, since it has to go backward in time
-        self.k_backward = 1
         N_list =[self.k_backward,self.N]
-        # N_list = [1,1]
         
         self.ocp = AcadosMultiphaseOcp(N_list=N_list)
         self.build_flag = False
@@ -1001,17 +1004,17 @@ class BackAndForthNstepController(HTWAController):
             self.ocp_solver.set(i, 'x', self.x_guess[i])
             self.ocp_solver.set(i, 'u', self.u_guess[i])
             
-        self.ocp_solver.set(self.N + self.k_backward + 1, 'x', self.x_guess[-1])
+        self.ocp_solver.set(self.N + self.k_backward , 'x', self.x_guess[-1])
 
         for i in range(self.N + self.k_backward + 1):
-            self.ocp_solver.set(i,'p',np.hstack([self.cost.traj[:,self.current_step+i],
+            self.ocp_solver.set(i,'p',np.hstack([np.zeros(3),
                                                 [self.model.params.alpha,
                                                  self.ocp_solver.get(i,'p')[-1]]]))
         # Solve the OCP
         status = self.ocp_solver.solve()
 
         # Save the temporary solution, independently of the status
-        for i in range(self.N + self.k_backward + 1):
+        for i in range(self.N + self.k_backward):
             self.x_temp[i] = self.ocp_solver.get(i, "x")
             self.u_temp[i] = self.ocp_solver.get(i, "u")
         self.x_temp[-1] = self.ocp_solver.get(self.N + self.k_backward, "x")

@@ -16,9 +16,10 @@ from copy import deepcopy
 args = parse_args()
 model_name = args['system']
 params = Parameters(args,model_name, rti=False)
-params.alpha = args['alpha']
 model = AdamModel(params)
 set_OCP = ControlInvarianceOCP(model)
+
+alpha = 0.995
 
 n_samples = 3000
 sampled_states = np.zeros((n_samples, model.nx))
@@ -29,8 +30,8 @@ for i in range(n_samples):
     velocity_direction_normalized = np.random.uniform(-1, 1, model.nv)
     velocity_direction_normalized /= np.linalg.norm(velocity_direction_normalized)
     sampled_states[i, model.nq:] = velocity_direction_normalized
-    sampled_states[i, model.nq:] = params.alpha * velocity_direction_normalized * np.array(set_OCP.safe_set.pure_nn_output(sampled_states[i])).squeeze()  # fix this to sample on the border of the set
+    sampled_states[i, model.nq:] = alpha * velocity_direction_normalized * np.array(set_OCP.safe_set.pure_nn_output(sampled_states[i])).squeeze()  # fix this to sample on the border of the set
     print(f'Value constraint state {i}: {set_OCP.safe_set.nn_func(sampled_states[i], 0)}')
 
-np.save('sampled_states.npy', sampled_states)
+np.save('data_results/sampled_states.npy', sampled_states)
 print(sampled_states)
