@@ -21,6 +21,7 @@ params = Parameters(args,model_name, rti=False)
 model = AdamModel(params)
 set_OCP = NStepControlInvarianceOCP(model)
 states_to_verify = np.load('data_results/sampled_states.npy')[start:end]
+states_to_verify = np.load('data_results/CIS_Unsafe_states_large.npy')[start:end]
 horizon_to_test = list(np.arange(int(params.N/2)+1, params.N+1))
 horizon_to_test = list(np.arange(1, params.N+1))
 # horizon_to_test = list(np.arange(1,10))
@@ -35,5 +36,5 @@ for i in tqdm(range(states_to_verify.shape[0])):
         # print(f"Solution: {len(set_OCP.X)}")
     if (results[i,:] == False).all():
         print(f'State {i}_{x_init}:  is Unsafe for all horizons')
-np.save(f'data_results/verification_results_N_stepCIS_start{start}_end{end}.npy', results)
+np.save(f'data_results/verification_results_N_stepCIS_large_start{start}_end{end}.npy', results)
 print(f'succesful states = {np.sum(results.any(axis=1))} / {results.shape[0]}')
