@@ -30,43 +30,33 @@ results = np.zeros((states_to_verify.shape[0],n_r_back_to_test,max_horizon), dty
 results[:] = False
 results_N_step_CIS = np.load(f'data_results/verification_results_N_stepCIS.npy')
 
-# progress_bar = tqdm(total=((max_horizon+1)*max_horizon/2)*(end-start), desc=f'Testing initial conditions, alpha {params.alpha}')
-# counter = 0
-# for j in range(n_r_back_to_test):
-#     for k in range(max_horizon, j, -1):
-#         for i in range(states_to_verify.shape[0]):  
-#             x_init = states_to_verify[i]
-#             if j == 0: 
-#                 results[i,j,:] = results_N_step_CIS[i,k-1]  
-#             else:
-#                 result_problem, _ = set_OCP.solveProblem(x_init,j,k)  
-#                 results[i,j,k-1] = result_problem
-
-#             print(f"State {i}_r_{j}_j_{k}_{x_init}: {'Safe' if results[i,j,k-1] else 'Unsafe'}")
-#             counter += 1
-#             if counter % 100 == 0:
-#                 print(f'Progress: {counter} / {((max_horizon+1)*max_horizon/2)*(end-start)}')
-#             progress_bar.update(1)
-
-# np.save(f'data_results/verification_results_back_and_forth_within_N_CIS_ipopt_large_{start}_{end}.npy', results)
-
 progress_bar = tqdm(total=(end-start), desc=f'Testing initial conditions, alpha {params.alpha}')
 for i in range(states_to_verify.shape[0]):
-    # found_safe = False
+    # firstly compute all the results for j =45
+    for j in range(1,n_r_back_to_test): 
+        x_init = states_to_verify[i]
+        result_problem, _ = set_OCP.solveProblem(x_init,j,max_horizon)  
+        results[i,j,max_horizon-1] = result_problem
+        print(f"State {i}_r_{j}_j_{max_horizon}_{x_init}: {'Safe' if results[i,j,max_horizon-1] else 'Unsafe'}")
+
+    # then for all the other horizons, but, if we find a safe one, we can skip the rest of the horizons for that state. If
+    # a safe state was found for j_forward 45, we can skip all the horizons for j_forward < 45
+    if not results[i,:,max_horizon-1].any(): # if no safe state was found for j_forward = 45, we can test the other horizons
+        found_safe = False
+    else:
+        found_safe = True   
+
     for j in range(1,n_r_back_to_test):
-        # if found_safe:
-        #     break
-        for k in range(j+1, max_horizon+1):  
+        if found_safe:
+            break
+        for k in range(j+1, max_horizon):  
             x_init = states_to_verify[i]
-            # if j == 0: 
-            #     results[i,j,:] = results_N_step_CIS[i,k-1]  
-            # else:
             result_problem, _ = set_OCP.solveProblem(x_init,j,k)  
             results[i,j,k-1] = result_problem
             print(f"State {i}_r_{j}_j_{k}_{x_init}: {'Safe' if results[i,j,k-1] else 'Unsafe'}")
-            # if result_problem:
-            #         found_safe = True
-            #         break
+            if result_problem:
+                    found_safe = True
+                    break
     progress_bar.update(1)
 
 np.save(f'data_results/verification_results_back_and_forth_within_N_CIS_ipopt_large_start{start}_end{end}.npy', results)

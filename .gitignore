@@ -21,3 +21,4 @@ robots/*
 logs/*
 *.log
 .env
+SetVerification/*
