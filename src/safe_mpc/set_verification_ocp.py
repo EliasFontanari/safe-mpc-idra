@@ -255,6 +255,120 @@ class BackAndForthNStepControlInvariance(ControlInvarianceOCP):
             return True, sol
         except:
             return False, None
+class BackAndForthNStepControlInvarianceAlternative(ControlInvarianceOCP):
+    def __init__(self, model):
+        super().__init__(model)
+        self.r_back = 0
+        self.j_forward = self.params.N 
+        self.set_opti()
+
+    # set base ocp (only dynamics and obstacles/bounds constraints)
+    def set_opti(self):
+        opti = cs.Opti()
+        # x_init = opti.parameter(self.model.nx)
+        cost = 0
+
+        # There will be two shooting trajectories, one for the backward phase and one for the forward phase, with free initial condition
+        # "backward" trajectory
+        X_back, U_back = [], []
+        X_back += [opti.variable(self.model.nx)]
+        # opti.subject_to(opti.bounded(self.model.x_min, X[-1], self.model.x_max))
+        for k in range(self.r_back):
+            X_back += [opti.variable(self.model.nx)]
+            opti.subject_to(opti.bounded(self.model.x_min, X_back[-1], self.model.x_max))
+            U_back += [opti.variable(self.model.nu)]
+
+        # backward phase constraints
+        for k in range(self.r_back + 1):
+            if k < self.r_back:
+                opti.subject_to(X_back[k + 1] == self.model.f_fun(X_back[k], U_back[k]))
+                # Torque constraints
+                opti.subject_to(
+                    opti.bounded(
+                        self.model.tau_min,
+                        self.model.tau_fun(X_back[k], U_back[k]),
+                        self.model.tau_max,
+                    )
+                )
+            for bounds, constr in zip(
+                self.model.NL_external[-1], self.model.collisions_constr_fun
+            ):
+                opti.subject_to(opti.bounded(bounds[1], constr[0](X_back[k]), bounds[2]))
+        
+        # "forward" trajectory
+        X_forward, U_forward = [], []
+        X_forward += [opti.variable(self.model.nx)]
+        # opti.subject_to(opti.bounded(self.model.x_min, X[-1], self.model.x_max))
+        for k in range(self.j_forward):
+            X_forward += [opti.variable(self.model.nx)]
+            opti.subject_to(opti.bounded(self.model.x_min, X_forward[-1], self.model.x_max))
+            U_forward += [opti.variable(self.model.nu)]
+
+        # forward phase constraints
+        for k in range(self.j_forward + 1):
+            if k < self.j_forward:
+                opti.subject_to(X_forward[k + 1] == self.model.f_fun(X_forward[k], U_forward[k]))
+                # Torque constraints
+                opti.subject_to(
+                    opti.bounded(
+                        self.model.tau_min,
+                        self.model.tau_fun(X_forward[k], U_forward[k]),
+                        self.model.tau_max,
+                    )
+                )
+            for bounds, constr in zip(
+                self.model.NL_external[-1], self.model.collisions_constr_fun
+            ):
+                opti.subject_to(opti.bounded(bounds[1], constr[0](X_forward[k]), bounds[2]))
+
+        # initial state is optimized, but it has to be the same for both trajectories
+        opti.subject_to(X_back[0] == X_forward[0])
+
+        self.opti = opti
+        self.X_back = X_back
+        self.U_back = U_back
+        self.X_forward = X_forward
+        self.U_forward = U_forward
+        self.cost = cost
+
+
+        self.additionalSetting()
+        self.opti.minimize(self.cost)
+
+    def set_r_back(self, r):
+        self.r_back = r
+
+    def set_j_forward(self, j_forward):
+        self.j_forward = j_forward
+
+    def solveProblem(self, x_init, r_back, j_forward):
+        self.set_r_back(r_back)
+        self.set_j_forward(j_forward)
+        self.set_opti()
+        self.setXBoundaryConditions(x_init, r_back)
+        self.ocp = self.instantiateProblem()
+        try:
+            sol = self.opti.solve()
+            return True, sol
+        except:
+            return False, None
+
+    def additionalSetting(self):
+        safe_set_funs = self.safe_set.get_constraints_fun()
+        safe_set_bounds = self.safe_set.get_bounds()
+        for i, func in enumerate(safe_set_funs):
+            self.opti.subject_to(
+                self.opti.bounded(
+                    safe_set_bounds[i][0], func(self.X_forward[-1]), safe_set_bounds[i][1]
+                )
+            )
+
+    def setXBoundaryConditions(self, x_init, node):
+        if self.opti == None:
+            print("error problem not istantiated yet")
+            exit()
+        else:
+            self.opti.subject_to(self.X_back[node] == x_init)
 
 class NStepControlInvarianceOCP_MAX(BaseOCP):
     def __init__(self, model):

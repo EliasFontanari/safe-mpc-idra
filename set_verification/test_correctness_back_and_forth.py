@@ -34,23 +34,34 @@ for i in range(states_to_verify.shape[0]):
 
     # test for these horizons, that from analysis are the best ones
     r = r_j_feasible[i,0]
-    j = r_j_feasible[i,1]
+    j = r_j_feasible[i,1] +1
 
-
+    # r=6
+    # j=10
 
     print(f'\n\nTesting state {i} with initial condition {x0} at horizons r={r}, j={j}).') 
     
     result_problem, sol = set_OCP.solveProblem(x0, r, j)
+
+    # try with N-step CIS at best horizon
     result_N_step_CIS, _ = set_OCP_N_step.solveProblem(x0, 24)
 
+    # try with 1-step CIS
+    result_1_step_CIS, _ = set_OCP_N_step.solveProblem(x0, 1)
+
     if not result_N_step_CIS:
-        print(f'N_step failed')
+        print(f'24_step failed')
     else:
-        print(f'N_step succeeded')
-    
+        print(f'24_step succeeded')
+
+    if not result_1_step_CIS:
+        print(f'1_step failed')
+    else:
+        print(f'1_step succeeded')
+
     if not result_problem:
-        print(f'Error: state {i} with initial condition {x0} is not safe for r={r}, j={j}! Try with r=10 j=10')
-        result_problem, sol = set_OCP.solveProblem(x0, 10, 10)
+        print(f'Error: state {i} with initial condition {x0} is not safe for r={r}, j={j}! Try with r=10 j=11')
+        result_problem, sol = set_OCP.solveProblem(x0, 10, 11)
 
 
     # test last state in safe set

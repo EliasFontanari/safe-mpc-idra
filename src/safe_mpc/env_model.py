@@ -68,7 +68,7 @@ class AdamModel:
 
         # Double integrator backward in time
         self.f_disc_back = vertcat(
-            self.x[:nq] - params.dt * self.x[nq:] - 0.5 * params.dt**2 * self.u,
+            self.x[:nq] - params.dt * self.x[nq:] + 0.5 * params.dt**2 * self.u,
             self.x[nq:] - params.dt * self.u
         ) 
         self.f_fun_back = Function('f_back', [self.x, self.u], [self.f_disc_back])
