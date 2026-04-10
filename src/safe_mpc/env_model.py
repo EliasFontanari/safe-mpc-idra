@@ -65,6 +65,13 @@ class AdamModel:
             self.x[nq:] + params.dt * self.u
         ) 
         self.f_fun = Function('f', [self.x, self.u], [self.f_disc])
+
+        # Double integrator backward in time
+        self.f_disc_back = vertcat(
+            self.x[:nq] - params.dt * self.x[nq:] - 0.5 * params.dt**2 * self.u,
+            self.x[nq:] - params.dt * self.u
+        ) 
+        self.f_fun_back = Function('f_back', [self.x, self.u], [self.f_disc_back])
             
         self.amodel.x = self.x
         self.amodel.u = self.u
@@ -86,7 +93,7 @@ class AdamModel:
         H_b = np.eye(4)
         self.tau_noisy = self.mass_noisy(H_b, self.x[:nq])[6:, 6:] @ self.u + \
                    self.bias_noisy(H_b, self.x[:nq], np.zeros(6), self.x[nq:])[6:]
-        self.tau_noisy_fun = Function('tau', [self.x, self.u], [self.tau_noisy])
+        self.tau_noisy_fun = Function('tau_noisy', [self.x, self.u], [self.tau_noisy])
 
         # EE position (global frame)
         T_ee = self.fk(np.eye(4), self.x[:nq])

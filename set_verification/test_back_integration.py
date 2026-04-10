@@ -1,6 +1,8 @@
+import numpy as np
+
 def f(x):
     r = 2.0
-    return r * x * (1 - x)
+    return np.exp( x)
 
 def rk4_step(x, dt):
     k1 = f(x)

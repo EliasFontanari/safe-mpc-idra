@@ -4,7 +4,7 @@
 # Get total size from the Python script
 TOTAL=$(python3 -c "
 import numpy as np
-arr = np.load('data_results/CIS_Unsafe_states_large.npy')  
+arr = np.load('data_results/N_step_unsafe_states.npy')  
 print(arr.shape[0])
 ")
 
