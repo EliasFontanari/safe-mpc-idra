@@ -1,5 +1,4 @@
 import numpy as np 
-from safe_mpc.controller import SafeBackupController
 from safe_mpc.set_verification_ocp import BackAndForthNStepControlInvariance
 import time
 import pickle
